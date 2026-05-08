@@ -57,11 +57,11 @@ const GamePage = () => {
         <Navbar />
         <main className="max-w-5xl mx-auto px-4 py-6">
           {/* Error banner */}
-          {gameError && (
+          {/* {gameError && (
             <div className="mb-4 bg-neon-red/10 border border-neon-red/40 rounded-xl px-4 py-3 text-neon-red text-sm text-center">
               ❌ {gameError}
             </div>
-          )}
+          )} */}
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start">
             {/* Left: Game Board */}

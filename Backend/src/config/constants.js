@@ -26,7 +26,7 @@ const DIFFICULTY_RATING = {
 
 // Rating delta awarded / deducted per game outcome
 const RATING_DELTA = {
-  WIN: { EASY: 70, MEDIUM: 25, HARD: 20, LEGEND: 15 },
+  WIN: { EASY: 50, MEDIUM: 30, HARD: 20, LEGEND: 15 },
   LOSE: { EASY: -5, MEDIUM: -10, HARD: -15, LEGEND: -20 },
 };
 

@@ -44,7 +44,7 @@ const UserService = {
       const { data } = await api.get("/users/leaderboard", {
         params: { limit },
       });
-      return ok(data.data.users);
+      return ok(data.users);
     } catch (err) {
       return fail(extractError(err));
     }

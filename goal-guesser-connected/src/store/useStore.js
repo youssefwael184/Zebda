@@ -237,10 +237,6 @@ export const useStore = create(
         }
       },
 
-      /**
-       * Synchronous getter kept for backward compatibility with DashboardPage.
-       * Use loadLeaderboard() to refresh from the API first.
-       */
       getLeaderboard() {
         return get().leaderboard;
       },
