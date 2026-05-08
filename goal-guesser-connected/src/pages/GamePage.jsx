@@ -8,38 +8,47 @@
  *           then starts a new game if there is none.
  */
 
-import React, { useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useStore } from '../store/useStore';
-import { DIFFICULTY_CONFIG } from '../data/tiers';
-import Navbar       from '../components/Navbar';
-import StarField    from '../components/StarField';
-import HangmanSVG   from '../components/HangmanSVG';
-import WordDisplay  from '../components/WordDisplay';
-import Keyboard     from '../components/Keyboard';
-import HintBox      from '../components/HintBox';
-import AttemptsBar  from '../components/AttemptsBar';
-import StatsPanel   from '../components/StatsPanel';
-import GameOverlay  from '../components/GameOverlay';
+import React, { useEffect } from "react";
+import { motion } from "framer-motion";
+import { useStore } from "../store/useStore";
+import { DIFFICULTY_CONFIG } from "../data/tiers";
+import Navbar from "../components/Navbar";
+import StarField from "../components/StarField";
+import HangmanSVG from "../components/HangmanSVG";
+import WordDisplay from "../components/WordDisplay";
+import Keyboard from "../components/Keyboard";
+import HintBox from "../components/HintBox";
+import AttemptsBar from "../components/AttemptsBar";
+import StatsPanel from "../components/StatsPanel";
+import GameOverlay from "../components/GameOverlay";
 
 const GamePage = () => {
-  const { gameState, gameLoading, gameError, startNewGame, guessLetter, reconnectSession } = useStore();
+  const {
+    gameState,
+    gameLoading,
+    gameError,
+    startNewGame,
+    guessLetter,
+    reconnectSession,
+  } = useStore();
 
   useEffect(() => {
     const init = async () => {
       // Try to reconnect to an existing in-progress session
       await reconnectSession();
       // If still idle (no active session), start a fresh game
-      if (useStore.getState().gameState.status === 'idle') {
+      if (useStore.getState().gameState.status === "idle") {
         await startNewGame();
       }
     };
     init();
   }, []); // eslint-disable-line
 
-  const isPlaying  = gameState.status === 'playing';
-  const isLost     = gameState.status === 'lost';
-  const diffConfig = gameState.difficulty ? DIFFICULTY_CONFIG[gameState.difficulty] : null;
+  const isPlaying = gameState.status === "playing";
+  const isLost = gameState.status === "lost";
+  const diffConfig = gameState.difficulty
+    ? DIFFICULTY_CONFIG[gameState.difficulty]
+    : null;
 
   return (
     <div className="min-h-screen bg-pitch-900 relative">
@@ -47,7 +56,6 @@ const GamePage = () => {
       <div className="relative z-10">
         <Navbar />
         <main className="max-w-5xl mx-auto px-4 py-6">
-
           {/* Error banner */}
           {gameError && (
             <div className="mb-4 bg-neon-red/10 border border-neon-red/40 rounded-xl px-4 py-3 text-neon-red text-sm text-center">
@@ -56,7 +64,6 @@ const GamePage = () => {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start">
-
             {/* Left: Game Board */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -66,20 +73,34 @@ const GamePage = () => {
               <div className="card p-5">
                 <div className="flex items-center justify-between mb-4">
                   {diffConfig ? (
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${diffConfig.colorClass} ${diffConfig.bgClass} ${diffConfig.borderClass}`}>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${diffConfig.colorClass} ${diffConfig.bgClass} ${diffConfig.borderClass}`}
+                    >
                       {diffConfig.emoji} {diffConfig.label}
                     </span>
-                  ) : <div />}
+                  ) : (
+                    <div />
+                  )}
                   <AttemptsBar wrongCount={gameState.wrong.length} />
                 </div>
 
                 <div className="flex justify-center my-2">
-                  <HangmanSVG wrongCount={gameState.wrong.length} isLost={isLost} />
+                  <HangmanSVG
+                    wrongCount={gameState.wrong.length}
+                    isLost={isLost}
+                  />
                 </div>
 
-                <HintBox hints={gameState.hints} wrongCount={gameState.wrong.length} />
+                <HintBox
+                  hints={gameState.hints}
+                  wrongCount={gameState.wrong.length}
+                />
 
-                <WordDisplay word={gameState.word} guessed={gameState.guessed} isLost={isLost} />
+                <WordDisplay
+                  word={gameState.word}
+                  guessed={gameState.guessed}
+                  isLost={isLost}
+                />
 
                 <Keyboard
                   guessed={gameState.guessed}
@@ -95,7 +116,7 @@ const GamePage = () => {
                   </div>
                 )}
 
-                {!isPlaying && gameState.status !== 'idle' && (
+                {!isPlaying && gameState.status !== "idle" && (
                   <motion.button
                     className="btn-primary mt-5"
                     onClick={startNewGame}

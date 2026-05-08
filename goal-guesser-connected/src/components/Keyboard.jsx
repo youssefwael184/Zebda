@@ -1,13 +1,13 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { motion } from "framer-motion";
 
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-const Keyboard = ({ guessed, wrong, word, disabled, onGuess }) => {
+const Keyboard = ({ guessed, wrong, disabled, onGuess }) => {
   return (
     <div className="grid grid-cols-7 gap-1.5 mt-4">
       {ALPHABET.map((letter, i) => {
-        const isCorrect = guessed.includes(letter) && word.includes(letter);
+        const isCorrect = guessed.includes(letter);
         const isWrong = wrong.includes(letter);
         const isUsed = isCorrect || isWrong;
 
@@ -19,7 +19,7 @@ const Keyboard = ({ guessed, wrong, word, disabled, onGuess }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.012, duration: 0.2 }}
-            className={`key-btn ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}`}
+            className={`key-btn ${isCorrect ? "correct" : ""} ${isWrong ? "wrong" : ""}`}
             disabled={isUsed || disabled}
             onClick={() => onGuess(letter)}
           >

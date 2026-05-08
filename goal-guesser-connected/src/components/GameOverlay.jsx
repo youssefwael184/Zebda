@@ -7,6 +7,7 @@ const CONFETTI_COLORS = ['#00d4ff','#7c3aed','#10b981','#f59e0b','#ec4899','#FFD
 
 const GameOverlay = () => {
   const { gameState, currentUser, startNewGame, dismissOverlay } = useStore();
+  
   const navigate = useNavigate();
   const confettiRef = useRef([]);
 
