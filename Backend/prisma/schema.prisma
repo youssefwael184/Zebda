@@ -1,0 +1,123 @@
+// ============================================================
+// Goal Guesser — Prisma Schema
+// Database: MySQL
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USER ────────────────────────────────────────────────────
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  email       String?  @unique
+  password    String
+  avatarColor String   @default("#7c3aed")
+  rating      Int      @default(1000)
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  games       Int      @default(0)
+  streak      Int      @default(0)
+  bestStreak  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions      GameSession[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// ─── REFRESH TOKENS ──────────────────────────────────────────
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @db.VarChar(512)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  LEGEND
+}
+
+// ─── FOOTBALL PLAYER ─────────────────────────────────────────
+model Player {
+  id           String     @id @default(uuid())
+  name         String     @unique
+  nationality  String
+  position     String
+  club         String
+  league       String
+  birthYear    Int
+  jerseyNumber Int
+  difficulty   Difficulty @default(MEDIUM)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  hints    PlayerHint[]
+  sessions GameSession[]
+
+  @@index([difficulty])
+  @@index([active])
+  @@map("players")
+}
+
+model PlayerHint {
+  id        String   @id @default(uuid())
+  playerId  String
+  order     Int
+  text      String   @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, order])
+  @@index([playerId])
+  @@map("player_hints")
+}
+
+// ─── GAME SESSION ────────────────────────────────────────────
+model GameSession {
+  id            String        @id @default(uuid())
+  userId        String
+  playerId      String
+  maskedWord    String        @db.VarChar(500)
+  guessed       Json          @default("[]")
+  wrong         Json          @default("[]")
+  hintsRevealed Int           @default(0)
+  status        SessionStatus @default(PLAYING)
+  difficulty    Difficulty
+  ratingBefore  Int
+  ratingAfter   Int?
+  startedAt     DateTime      @default(now())
+  finishedAt    DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([userId])
+  @@index([playerId])
+  @@map("game_sessions")
+}
+
+enum SessionStatus {
+  PLAYING
+  WON
+  LOST
+}
