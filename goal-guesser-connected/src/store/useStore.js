@@ -17,28 +17,28 @@
  *  D — Dependency Inversion  : depends on service abstractions, not implementations
  */
 
-import { create } from 'zustand';
-import { persist }  from 'zustand/middleware';
-import AuthService  from '../services/AuthService';
-import GameService  from '../services/GameService';
-import UserService  from '../services/UserService';
-import { tokenStorage } from '../services/api';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import AuthService from "../services/AuthService";
+import GameService from "../services/GameService";
+import UserService from "../services/UserService";
+import { tokenStorage } from "../services/api";
 
 // ─── Empty game state ─────────────────────────────────────────────────────────
 
 const EMPTY_GAME = {
-  sessionId:        null,
-  word:             '',
-  maskedWord:       '',
-  guessed:          [],
-  wrong:            [],
-  hints:            [],
-  difficulty:       'easy',
-  status:           'idle',
-  player:           null,
-  ratingDelta:      0,
-  wrongCount:       0,
-  maxWrong:         6,
+  sessionId: null,
+  word: "",
+  maskedWord: "",
+  guessed: [],
+  wrong: [],
+  hints: [],
+  difficulty: "easy",
+  status: "idle",
+  player: null,
+  ratingDelta: 0,
+  wrongCount: 0,
+  maxWrong: 6,
   lastGuessCorrect: null,
 };
 
@@ -48,18 +48,18 @@ export const useStore = create(
   persist(
     (set, get) => ({
       // ── State ──────────────────────────────────────────────────────────────
-      currentUser:  null,
-      authError:    '',
-      authSuccess:  '',
-      authLoading:  false,
-      gameState:    EMPTY_GAME,
-      gameLoading:  false,
-      gameError:    '',
-      leaderboard:  [],
+      currentUser: null,
+      authError: "",
+      authSuccess: "",
+      authLoading: false,
+      gameState: EMPTY_GAME,
+      gameLoading: false,
+      gameError: "",
+      leaderboard: [],
 
       // ── Session expiry (fired by Axios interceptor) ────────────────────────
       _initSessionListener() {
-        window.addEventListener('gg:session-expired', () => {
+        window.addEventListener("gg:session-expired", () => {
           set({ currentUser: null, gameState: EMPTY_GAME });
         });
       },
@@ -71,15 +71,19 @@ export const useStore = create(
        * @returns {boolean} success
        */
       async register(username, email, password) {
-        set({ authLoading: true, authError: '', authSuccess: '' });
-        const result = await AuthService.register({ username, email, password });
+        set({ authLoading: true, authError: "", authSuccess: "" });
+        const result = await AuthService.register({
+          username,
+          email,
+          password,
+        });
         if (!result.success) {
           set({ authError: result.error, authLoading: false });
           return false;
         }
         set({
           currentUser: result.data,
-          authSuccess: 'Account created! Welcome aboard 🚀',
+          authSuccess: "Account created! Welcome aboard 🚀",
           authLoading: false,
         });
         return true;
@@ -90,7 +94,7 @@ export const useStore = create(
        * @returns {boolean} success
        */
       async login(username, password) {
-        set({ authLoading: true, authError: '', authSuccess: '' });
+        set({ authLoading: true, authError: "", authSuccess: "" });
         const result = await AuthService.login({ username, password });
         if (!result.success) {
           set({ authError: result.error, authLoading: false });
@@ -109,7 +113,7 @@ export const useStore = create(
       },
 
       clearAuthMessages() {
-        set({ authError: '', authSuccess: '' });
+        set({ authError: "", authSuccess: "" });
       },
 
       // ── Game ───────────────────────────────────────────────────────────────
@@ -118,60 +122,107 @@ export const useStore = create(
        * Start a new game session.
        * The server picks the correct difficulty based on the user's rating.
        */
+      // ── Game ───────────────────────────────────────────────────────────────
+
       async startNewGame() {
-        set({ gameLoading: true, gameError: '' });
+        set({ gameLoading: true, gameError: "" });
         const result = await GameService.startGame();
-        if (!result.success) {
-          set({ gameError: result.error, gameLoading: false });
+
+        if (!result.success || !result.data?.sessionId) {
+          set({
+            gameError: result.error ?? "Failed to start game",
+            gameLoading: false,
+          });
           return;
         }
-        set({ gameState: result.data, gameLoading: false });
+
+        const data = result.data;
+        set({
+          gameState: {
+            ...EMPTY_GAME,
+            ...data,
+            status: data.status?.toLowerCase() ?? "playing",
+            guessed: data.guessed ?? [],
+            wrong: data.wrong ?? [],
+            hints: data.hints ?? [],
+            word: data.player?.name ?? data.word ?? "",
+          },
+          gameLoading: false,
+        });
       },
 
-      /**
-       * Submit a letter guess.
-       * @param {string} letter  Single A-Z character
-       */
       async guessLetter(letter) {
         const { gameState } = get();
-        if (gameState.status !== 'playing') return;
+        if (gameState.status !== "playing") return;
 
         set({ gameLoading: true });
         const result = await GameService.guessLetter(letter);
-        if (!result.success) {
-          set({ gameError: result.error, gameLoading: false });
+
+        if (!result.success || !result.data?.sessionId) {
+          set({
+            gameError: result.error ?? "Guess failed",
+            gameLoading: false,
+          });
           return;
         }
 
-        const newGameState = result.data;
+        const data = result.data;
+        const status = data.status?.toLowerCase();
 
-        // Refresh user profile from server when game ends (rating updated server-side)
-        if (newGameState.status === 'won' || newGameState.status === 'lost') {
+        if (status === "won" || status === "lost") {
+          await new Promise((r) => setTimeout(r, 300)); // استنى الـ DB يخلص
           const profileResult = await UserService.getProfile();
-          if (profileResult.success) {
-            set({ currentUser: profileResult.data });
-          }
+          set({
+            gameState: {
+              ...data,
+              status,
+              word: data.player?.name ?? data.word ?? "",
+              guessed: data.guessed ?? [],
+              wrong: data.wrong ?? [],
+              hints: data.hints ?? [],
+            },
+            currentUser: profileResult.success
+              ? profileResult.data
+              : get().currentUser,
+            gameLoading: false,
+          });
+          return;
         }
 
-        set({ gameState: newGameState, gameLoading: false });
+        set({
+          gameState: {
+            ...data,
+            status,
+            guessed: data.guessed ?? [],
+            wrong: data.wrong ?? [],
+            hints: data.hints ?? [],
+          },
+          gameLoading: false,
+        });
       },
 
-      /**
-       * Reconnect to an existing session (page refresh / navigation back).
-       * Useful so the user does not lose their game.
-       */
       async reconnectSession() {
         const result = await GameService.getActiveSession();
-        if (result.success && result.data) {
-          set({ gameState: result.data });
-        }
-      },
+        if (!result.success || !result.data?.sessionId) return; // مفيش session → مشكلة
 
+        const data = result.data;
+        set({
+          gameState: {
+            ...EMPTY_GAME,
+            ...data,
+            status: data.status?.toLowerCase() ?? "playing",
+            guessed: data.guessed ?? [],
+            wrong: data.wrong ?? [],
+            hints: data.hints ?? [],
+            word: data.player?.name ?? data.word ?? "",
+          },
+        });
+      },
       /**
        * Dismiss win/loss overlay → return to idle so the next startNewGame works.
        */
       dismissOverlay() {
-        set((s) => ({ gameState: { ...s.gameState, status: 'idle' } }));
+        set((s) => ({ gameState: { ...s.gameState, status: "idle" } }));
       },
 
       // ── Leaderboard ────────────────────────────────────────────────────────
@@ -186,16 +237,12 @@ export const useStore = create(
         }
       },
 
-      /**
-       * Synchronous getter kept for backward compatibility with DashboardPage.
-       * Use loadLeaderboard() to refresh from the API first.
-       */
       getLeaderboard() {
         return get().leaderboard;
       },
     }),
     {
-      name: 'gg-session',
+      name: "gg-session",
       // Only persist the user object — tokens live in tokenStorage (localStorage)
       partialize: (state) => ({ currentUser: state.currentUser }),
       // On rehydrate, verify the persisted user still has a valid token
@@ -206,6 +253,6 @@ export const useStore = create(
         }
         state?._initSessionListener?.();
       },
-    }
-  )
+    },
+  ),
 );

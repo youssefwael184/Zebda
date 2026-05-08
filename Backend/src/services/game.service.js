@@ -3,9 +3,9 @@
 // All game-session logic — start, guess, resolve.
 // ============================================================
 
-const prisma = require('../config/database');
-const { createError } = require('../utils/error');
-const { MAX_WRONG } = require('../config/constants');
+const prisma = require("../config/database");
+const { createError } = require("../utils/error");
+const { MAX_WRONG } = require("../config/constants");
 const {
   buildMaskedWord,
   revealLetter,
@@ -13,7 +13,7 @@ const {
   buildHints,
   ratingToDifficulty,
   calcNewRating,
-} = require('../utils/game');
+} = require("../utils/game");
 
 // ─── startGame ───────────────────────────────────────────────
 
@@ -26,12 +26,12 @@ const {
 const startGame = async (userId) => {
   // 1. Load user
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw createError(404, 'User not found');
+  if (!user) throw createError(404, "User not found");
 
   // 2. Abandon any open session (don't penalise — player navigated away)
   await prisma.gameSession.updateMany({
-    where: { userId, status: 'PLAYING' },
-    data: { status: 'LOST', finishedAt: new Date() },
+    where: { userId, status: "PLAYING" },
+    data: { status: "LOST", finishedAt: new Date() },
   });
 
   // 3. Pick difficulty tier for this user
@@ -42,27 +42,31 @@ const startGame = async (userId) => {
   const recentIds = (
     await prisma.gameSession.findMany({
       where: { userId },
-      orderBy: { startedAt: 'desc' },
+      orderBy: { startedAt: "desc" },
       take: 20,
       select: { playerId: true },
     })
   ).map((s) => s.playerId);
 
+  // Fall back to any player of that difficulty if we've seen them all
+  const playerInclude = {
+    hints: { orderBy: { order: "asc" } },
+  };
+
   const eligible = await prisma.player.findMany({
-    where: {
-      difficulty,
-      active: true,
-      id: { notIn: recentIds },
-    },
+    where: { difficulty, active: true, id: { notIn: recentIds } },
+    include: playerInclude,
   });
 
-  // Fall back to any player of that difficulty if we've seen them all
   const pool =
     eligible.length > 0
       ? eligible
-      : await prisma.player.findMany({ where: { difficulty, active: true } });
-
-  if (!pool.length) throw createError(503, 'No players available for this difficulty');
+      : await prisma.player.findMany({
+          where: { difficulty, active: true },
+          include: playerInclude,
+        });
+  if (!pool.length)
+    throw createError(503, "No players available for this difficulty");
 
   const player = pool[Math.floor(Math.random() * pool.length)];
 
@@ -76,8 +80,9 @@ const startGame = async (userId) => {
       ratingBefore: user.rating,
     },
   });
-
-  return _formatSession(session, player, null, null, 'PLAYING');
+  console.log("player.hints:", player.hints);
+  console.log("session:", session);
+  return _formatSession(session, player, null, null, "PLAYING");
 };
 
 // ─── guessLetter ─────────────────────────────────────────────
@@ -97,7 +102,7 @@ const guessLetter = async (userId, letter) => {
 
   // 2. Guard: letter already guessed
   if (session.guessed.includes(upper) || session.wrong.includes(upper)) {
-    throw createError(400, 'Letter already guessed');
+    throw createError(400, "Letter already guessed");
   }
 
   const isCorrect = player.name.toUpperCase().includes(upper);
@@ -116,7 +121,7 @@ const guessLetter = async (userId, letter) => {
   // 3. Check terminal conditions
   const won = isWordComplete(updatedMasked);
   const lost = updatedWrong.length >= MAX_WRONG;
-  const status = won ? 'WON' : lost ? 'LOST' : 'PLAYING';
+  const status = won ? "WON" : lost ? "LOST" : "PLAYING";
 
   // 4. Persist updated session
   const updated = await prisma.gameSession.update({
@@ -126,14 +131,14 @@ const guessLetter = async (userId, letter) => {
       wrong: updatedWrong,
       maskedWord: updatedMasked,
       status,
-      ...(status !== 'PLAYING' && { finishedAt: new Date() }),
+      ...(status !== "PLAYING" && { finishedAt: new Date() }),
     },
-    include: { player: true },
+    include: { player: { include: { hints: { orderBy: { order: "asc" } } } } },
   });
 
   // 5. If game over, update user stats & rating
   let ratingDelta = 0;
-  if (status !== 'PLAYING') {
+  if (status !== "PLAYING") {
     const updatedUser = await _resolveUser(
       userId,
       status,
@@ -144,7 +149,13 @@ const guessLetter = async (userId, letter) => {
     ratingDelta = updatedUser.rating - session.ratingBefore;
   }
 
-  return _formatSession(updated, updated.player, isCorrect, status, ratingDelta);
+  return _formatSession(
+    updated,
+    updated.player,
+    isCorrect,
+    status,
+    ratingDelta,
+  );
 };
 
 // ─── getActiveSession ─────────────────────────────────────────
@@ -152,9 +163,11 @@ const guessLetter = async (userId, letter) => {
 /** Return current PLAYING session state (for reconnect / page refresh). */
 const getActiveSession = async (userId) => {
   const session = await prisma.gameSession.findFirst({
-    where: { userId, status: 'PLAYING' },
-    include: { player: true },
-    orderBy: { startedAt: 'desc' },
+    where: { userId, status: "PLAYING" },
+    include: {
+      player: { include: { hints: { orderBy: { order: "asc" } } } },
+    },
+    orderBy: { startedAt: "desc" },
   });
 
   if (!session) return null;
@@ -167,11 +180,14 @@ const getActiveSession = async (userId) => {
 
 const _getActiveSession = async (userId) => {
   const session = await prisma.gameSession.findFirst({
-    where: { userId, status: 'PLAYING' },
-    include: { player: true },
-    orderBy: { startedAt: 'desc' },
+    where: { userId, status: "PLAYING" },
+    include: {
+      player: { include: { hints: { orderBy: { order: "asc" } } } },
+    },
+    orderBy: { startedAt: "desc" },
   });
-  if (!session) throw createError(404, 'No active game session. Start a new game.');
+  if (!session)
+    throw createError(404, "No active game session. Start a new game.");
   return _normaliseSession(session);
 };
 
@@ -179,12 +195,18 @@ const _getActiveSession = async (userId) => {
  * Update user rating, win/loss counters, and streak after a session ends.
  * Returns the updated user so the caller can compute ratingDelta.
  */
-const _resolveUser = async (userId, outcome, difficulty, ratingBefore, session) => {
+const _resolveUser = async (
+  userId,
+  outcome,
+  difficulty,
+  ratingBefore,
+  session,
+) => {
   const newRating = calcNewRating(ratingBefore, outcome, difficulty);
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
-  const isWin = outcome === 'WON';
+  const isWin = outcome === "WON";
   const newStreak = isWin ? user.streak + 1 : 0;
   const newBestStreak = Math.max(user.bestStreak, newStreak);
 
@@ -223,35 +245,39 @@ const _resolveUser = async (userId, outcome, difficulty, ratingBefore, session) 
  * @param {string}      status           'PLAYING' | 'WON' | 'LOST'
  * @param {number}      ratingDelta      0 while playing, signed int on game over
  */
-const _formatSession = (session, player, lastGuessCorrect, status, ratingDelta = 0) => {
-  const currentStatus = status || session.status;
+const _formatSession = (
+  session,
+  player,
+  lastGuessCorrect,
+  status,
+  ratingDelta = 0,
+) => {
+  const currentStatus = (status || session.status).toLowerCase(); // ✅ دايماً lowercase
 
   return {
     sessionId: session.id,
     status: currentStatus,
     difficulty: session.difficulty,
-    maskedWord: session.maskedWord,
+    maskedWord: session.maskedWord.replace(/ /g, ""),
+    word: player.name, // ✅ الاسم الكامل دايماً موجود
     guessed: session.guessed,
     wrong: session.wrong,
     wrongCount: session.wrong.length,
     maxWrong: MAX_WRONG,
     lastGuessCorrect: lastGuessCorrect ?? null,
     ratingDelta,
-    // All hints sent upfront — frontend slices by wrongCount
     hints: buildHints(player),
-    // Player info always present — maskedWord still hides the name
     player: {
       name: player.name,
       nationality: player.nationality,
       position: player.position,
       club: player.club,
       league: player.league,
-      age: player.age,
+      age: player.age ?? null,
       jerseyNumber: player.jerseyNumber,
     },
   };
 };
-
 module.exports = { startGame, guessLetter, getActiveSession };
 
 // MySQL returns Json fields as already-parsed objects or strings depending on
@@ -260,8 +286,8 @@ const _normaliseSession = (session) => ({
   ...session,
   guessed: Array.isArray(session.guessed)
     ? session.guessed
-    : JSON.parse(session.guessed ?? '[]'),
+    : JSON.parse(session.guessed ?? "[]"),
   wrong: Array.isArray(session.wrong)
     ? session.wrong
-    : JSON.parse(session.wrong ?? '[]'),
+    : JSON.parse(session.wrong ?? "[]"),
 });
