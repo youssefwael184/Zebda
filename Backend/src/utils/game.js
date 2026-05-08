@@ -57,7 +57,7 @@ const isWordComplete = (maskedWord) =>
 const ratingToDifficulty = (rating) => {
   if (rating < 1200) return "EASY";
   if (rating < 1500) return "MEDIUM";
-  if (rating < 1800) return "HARD";
+  if (rating < 2000) return "HARD"; // ← 1800 → 2000
   return "LEGEND";
 };
 
@@ -80,6 +80,10 @@ const pickAvatarColor = (username) =>
       AVATAR_COLORS.length
   ];
 
+// ─── Hints ───────────────────────────────────────────────────
+
+const buildHints = (player) => (player.hints ?? []).map((h) => h.text);
+
 module.exports = {
   buildMaskedWord,
   revealLetter,
@@ -87,4 +91,5 @@ module.exports = {
   ratingToDifficulty,
   calcNewRating,
   pickAvatarColor,
+  buildHints, // ← ضيف السطر ده
 };

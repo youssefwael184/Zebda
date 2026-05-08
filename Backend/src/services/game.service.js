@@ -48,20 +48,23 @@ const startGame = async (userId) => {
     })
   ).map((s) => s.playerId);
 
+  // Fall back to any player of that difficulty if we've seen them all
+  const playerInclude = {
+    hints: { orderBy: { order: "asc" } },
+  };
+
   const eligible = await prisma.player.findMany({
-    where: {
-      difficulty,
-      active: true,
-      id: { notIn: recentIds },
-    },
+    where: { difficulty, active: true, id: { notIn: recentIds } },
+    include: playerInclude,
   });
 
-  // Fall back to any player of that difficulty if we've seen them all
   const pool =
     eligible.length > 0
       ? eligible
-      : await prisma.player.findMany({ where: { difficulty, active: true } });
-
+      : await prisma.player.findMany({
+          where: { difficulty, active: true },
+          include: playerInclude,
+        });
   if (!pool.length)
     throw createError(503, "No players available for this difficulty");
 
@@ -77,7 +80,8 @@ const startGame = async (userId) => {
       ratingBefore: user.rating,
     },
   });
-
+  console.log("player.hints:", player.hints);
+  console.log("session:", session);
   return _formatSession(session, player, null, null, "PLAYING");
 };
 
@@ -129,7 +133,7 @@ const guessLetter = async (userId, letter) => {
       status,
       ...(status !== "PLAYING" && { finishedAt: new Date() }),
     },
-    include: { player: true },
+    include: { player: { include: { hints: { orderBy: { order: "asc" } } } } },
   });
 
   // 5. If game over, update user stats & rating
@@ -160,7 +164,9 @@ const guessLetter = async (userId, letter) => {
 const getActiveSession = async (userId) => {
   const session = await prisma.gameSession.findFirst({
     where: { userId, status: "PLAYING" },
-    include: { player: true },
+    include: {
+      player: { include: { hints: { orderBy: { order: "asc" } } } },
+    },
     orderBy: { startedAt: "desc" },
   });
 
@@ -175,7 +181,9 @@ const getActiveSession = async (userId) => {
 const _getActiveSession = async (userId) => {
   const session = await prisma.gameSession.findFirst({
     where: { userId, status: "PLAYING" },
-    include: { player: true },
+    include: {
+      player: { include: { hints: { orderBy: { order: "asc" } } } },
+    },
     orderBy: { startedAt: "desc" },
   });
   if (!session)

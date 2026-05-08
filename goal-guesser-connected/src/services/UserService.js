@@ -7,17 +7,17 @@
  *  D — Dependency Inversion  : depends on `api` abstraction
  */
 
-import api from './api';
+import api from "./api";
 
-function ok(data)    { return { success: true,  data,  error: null }; }
-function fail(error) { return { success: false, data: null, error }; }
+function ok(data) {
+  return { success: true, data, error: null };
+}
+function fail(error) {
+  return { success: false, data: null, error };
+}
 
 function extractError(err) {
-  return (
-    err?.response?.data?.message ||
-    err?.message                 ||
-    'Something went wrong'
-  );
+  return err?.response?.data?.message || err?.message || "Something went wrong";
 }
 
 const UserService = {
@@ -27,8 +27,8 @@ const UserService = {
    */
   async getProfile() {
     try {
-      const { data } = await api.get('/users/me');
-      return ok(data.data.user);
+      const { data } = await api.get("/users/me");
+      return ok(data.user);
     } catch (err) {
       return fail(extractError(err));
     }
@@ -41,7 +41,9 @@ const UserService = {
    */
   async getLeaderboard(limit = 50) {
     try {
-      const { data } = await api.get('/users/leaderboard', { params: { limit } });
+      const { data } = await api.get("/users/leaderboard", {
+        params: { limit },
+      });
       return ok(data.data.users);
     } catch (err) {
       return fail(extractError(err));
@@ -55,7 +57,7 @@ const UserService = {
    */
   async getGameHistory(limit = 20) {
     try {
-      const { data } = await api.get('/users/history', { params: { limit } });
+      const { data } = await api.get("/users/history", { params: { limit } });
       return ok(data.data.history);
     } catch (err) {
       return fail(extractError(err));

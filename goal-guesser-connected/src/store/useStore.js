@@ -170,6 +170,7 @@ export const useStore = create(
         const status = data.status?.toLowerCase();
 
         if (status === "won" || status === "lost") {
+          await new Promise((r) => setTimeout(r, 300)); // استنى الـ DB يخلص
           const profileResult = await UserService.getProfile();
           set({
             gameState: {
